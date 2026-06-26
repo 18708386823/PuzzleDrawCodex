@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pillow
+cos-python-sdk-v5
+requests
+python-multipart
