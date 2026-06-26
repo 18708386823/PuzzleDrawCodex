@@ -93,17 +93,24 @@ def remove_background_with_cos(png_bytes: bytes) -> bytes:
             Key=key,
             Expired=300,
             Params=params,
-            UseCiEndPoint=True,
         )
     except Exception as exc:
-        logger.exception("COS presigned CI URL generation failed: bucket=%s key=%s", BUCKET, key)
+        logger.exception("COS presigned processing URL generation failed: bucket=%s key=%s", BUCKET, key)
         raise ImageProcessError("抠图链接生成失败，请检查 COS 数据万象配置后重试") from exc
 
     try:
         result = requests.get(signed_url, timeout=60)
         result.raise_for_status()
     except requests.RequestException as exc:
-        logger.exception("CI image processing request failed: bucket=%s key=%s", BUCKET, key)
+        response = getattr(exc, "response", None)
+        if response is not None:
+            logger.error(
+                "Image processing request failed: status=%s content_type=%s body_prefix=%r",
+                response.status_code,
+                response.headers.get("content-type"),
+                response.content[:500],
+            )
+        logger.exception("Image processing request failed: bucket=%s key=%s", BUCKET, key)
         raise ImageProcessError("抠图服务暂时不可用，请稍后重试") from exc
 
     try:
