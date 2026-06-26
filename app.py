@@ -1,6 +1,7 @@
 # Dependencies:
 # pip install fastapi uvicorn pillow cos-python-sdk-v5 requests python-multipart
 import io
+import logging
 import os
 import uuid
 from typing import Tuple
@@ -10,9 +11,14 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from PIL import Image, UnidentifiedImageError
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("puzzle-draw")
+
+COS_IMPORT_ERROR = None
 try:
     from qcloud_cos import CosConfig, CosS3Client
-except Exception:  # pragma: no cover - only raised when optional runtime dependency is missing
+except Exception as exc:  # pragma: no cover - only raised when optional runtime dependency is missing
+    COS_IMPORT_ERROR = exc
     CosConfig = None
     CosS3Client = None
 
@@ -44,7 +50,12 @@ def image_to_png_bytes(raw: bytes) -> Tuple[bytes, Image.Image]:
 
 def get_cos_client() -> CosS3Client:
     if CosConfig is None or CosS3Client is None:
-        raise ImageProcessError("缺少 COS 依赖，请先安装 cos-python-sdk-v5")
+        if COS_IMPORT_ERROR is not None:
+            logger.error(
+                "COS SDK import failed",
+                exc_info=(type(COS_IMPORT_ERROR), COS_IMPORT_ERROR, COS_IMPORT_ERROR.__traceback__),
+            )
+        raise ImageProcessError("缺少或无法加载 COS 依赖，请先安装 cos-python-sdk-v5")
 
     secret_id = os.getenv("TENCENT_SECRET_ID")
     secret_key = os.getenv("TENCENT_SECRET_KEY")
@@ -55,32 +66,44 @@ def get_cos_client() -> CosS3Client:
         config = CosConfig(Region=REGION, SecretId=secret_id, SecretKey=secret_key)
         return CosS3Client(config)
     except Exception as exc:
+        logger.exception("COS client initialization failed")
         raise ImageProcessError("抠图服务初始化失败，请检查密钥和地域配置") from exc
 
 
 def remove_background_with_cos(png_bytes: bytes) -> bytes:
     key = f"uploads/{uuid.uuid4().hex}.png"
     params = {"ci-process": "face-effect", "type": "face-segmentation"}
+    client = get_cos_client()
 
     try:
-        client = get_cos_client()
-        client.put_object(Bucket=BUCKET, Body=io.BytesIO(png_bytes), Key=key)
+        client.put_object(
+            Bucket=BUCKET,
+            Body=png_bytes,
+            Key=key,
+            ContentType="image/png",
+        )
+    except Exception as exc:
+        logger.exception("COS put_object failed: bucket=%s key=%s", BUCKET, key)
+        raise ImageProcessError("图片上传到抠图服务失败，请检查 COS 存储桶、地域、密钥权限后重试") from exc
+
+    try:
         signed_url = client.get_presigned_url(
             Method="GET",
             Bucket=BUCKET,
             Key=key,
             Expired=300,
             Params=params,
+            UseCiEndPoint=True,
         )
-    except ImageProcessError:
-        raise
     except Exception as exc:
-        raise ImageProcessError("图片上传到抠图服务失败，请稍后重试") from exc
+        logger.exception("COS presigned CI URL generation failed: bucket=%s key=%s", BUCKET, key)
+        raise ImageProcessError("抠图链接生成失败，请检查 COS 数据万象配置后重试") from exc
 
     try:
         result = requests.get(signed_url, timeout=60)
         result.raise_for_status()
     except requests.RequestException as exc:
+        logger.exception("CI image processing request failed: bucket=%s key=%s", BUCKET, key)
         raise ImageProcessError("抠图服务暂时不可用，请稍后重试") from exc
 
     try:
@@ -91,6 +114,7 @@ def remove_background_with_cos(png_bytes: bytes) -> bytes:
         processed.save(output, format="PNG")
         return output.getvalue()
     except Exception as exc:
+        logger.exception("CI image response parse failed: status=%s content_type=%s body_prefix=%r", result.status_code, result.headers.get("content-type"), result.content[:300])
         raise ImageProcessError("抠图结果解析失败，请稍后重试") from exc
 
 
@@ -390,11 +414,11 @@ HTML_PAGE = r"""
       {id:"A1",hex:"#FAF4C8"},{id:"A2",hex:"#FFFFD5"},{id:"A3",hex:"#FEFF8B"},{id:"A4",hex:"#FBED56"},{id:"A5",hex:"#F4D738"},{id:"A6",hex:"#FEAC4C"},{id:"A7",hex:"#FE8B4C"},{id:"A8",hex:"#FFDA45"},{id:"A9",hex:"#FF995B"},{id:"A10",hex:"#F77C31"},{id:"A11",hex:"#FFDD99"},{id:"A12",hex:"#FE9F72"},{id:"A13",hex:"#FFC365"},{id:"A14",hex:"#FD543D"},{id:"A15",hex:"#FFF365"},{id:"A16",hex:"#FFFF9F"},{id:"A17",hex:"#FFE36E"},{id:"A18",hex:"#FEBE7D"},{id:"A19",hex:"#FD7C72"},{id:"A20",hex:"#FFD568"},{id:"A21",hex:"#FFE395"},{id:"A22",hex:"#F4F57D"},{id:"A23",hex:"#E6C9B7"},{id:"A24",hex:"#F7F8A2"},{id:"A25",hex:"#FFD67D"},{id:"A26",hex:"#FFC830"},
       {id:"B1",hex:"#E6EE31"},{id:"B2",hex:"#63F347"},{id:"B3",hex:"#9EF780"},{id:"B4",hex:"#5DE035"},{id:"B5",hex:"#35E352"},{id:"B6",hex:"#65E2A6"},{id:"B7",hex:"#3DAF80"},{id:"B8",hex:"#1C9C4F"},{id:"B9",hex:"#27523A"},{id:"B10",hex:"#95D3C2"},{id:"B11",hex:"#5D722A"},{id:"B12",hex:"#166F41"},{id:"B13",hex:"#CAEB7B"},{id:"B14",hex:"#ADE946"},{id:"B15",hex:"#2E5132"},{id:"B16",hex:"#C5ED9C"},{id:"B17",hex:"#9BB13A"},{id:"B18",hex:"#E6EE49"},{id:"B19",hex:"#24B88C"},{id:"B20",hex:"#C2F0CC"},{id:"B21",hex:"#156A6B"},{id:"B22",hex:"#0B3C43"},{id:"B23",hex:"#303A21"},{id:"B24",hex:"#EEFCA5"},{id:"B25",hex:"#4E846D"},{id:"B26",hex:"#8D7A35"},{id:"B27",hex:"#CCE1AF"},{id:"B28",hex:"#9EE5B9"},{id:"B29",hex:"#C5E254"},{id:"B30",hex:"#E2FCB1"},{id:"B31",hex:"#B0E792"},{id:"B32",hex:"#9CAB5A"},
       {id:"C1",hex:"#E8FFE7"},{id:"C2",hex:"#A9F9FC"},{id:"C3",hex:"#A0E2FB"},{id:"C4",hex:"#41CCFF"},{id:"C5",hex:"#01ACEB"},{id:"C6",hex:"#50AAF0"},{id:"C7",hex:"#3677D2"},{id:"C8",hex:"#0F54C0"},{id:"C9",hex:"#324BCA"},{id:"C10",hex:"#3EBCE2"},{id:"C11",hex:"#28DDDE"},{id:"C12",hex:"#1C334D"},{id:"C13",hex:"#CDE8FF"},{id:"C14",hex:"#D5FDFF"},{id:"C15",hex:"#22C4C6"},{id:"C16",hex:"#1557A8"},{id:"C17",hex:"#04D1F6"},{id:"C18",hex:"#1D3344"},{id:"C19",hex:"#1887A2"},{id:"C20",hex:"#176DAF"},{id:"C21",hex:"#BEDDFF"},{id:"C22",hex:"#67B4BE"},{id:"C23",hex:"#C8E2FF"},{id:"C24",hex:"#7CC4FF"},{id:"C25",hex:"#A9E5E5"},{id:"C26",hex:"#3CAED8"},{id:"C27",hex:"#D3DFFA"},{id:"C28",hex:"#BBCFED"},{id:"C29",hex:"#34488E"},
-      {id:"D1",hex:"#AEB4F2"},{id:"D2",hex:"#858EDD"},{id:"D3",hex:"#2F54AF"},{id:"D4",hex:"#182A84"},{id:"D5",hex:"#B843C5"},{id:"D6",hex:"#AC7BDE"},{id:"D7",hex:"#8854B3"},{id:"D8",hex:"#E2D3FF"},{id:"D9",hex:"#D5B9F8"},{id:"D10",hex:"#361851"},{id:"D11",hex:"#B9BAE1"},{id:"D12",hex:"#DE9AD4"},{id:"D13",hex:"#B90095"},{id:"D14",hex:"#8B279B"},{id:"D15",hex:"#2F1F90"},{id:"D16",hex:"#E3E1EE"},{id:"D17",hex:"#C4D4F6"},{id:"D18",hex:"#A45EC7"},{id:"D19",hex:"#D8C3D7"},{id:"D20",hex:"#9C32B2"},{id:"D21",hex:"#9A009B"},{id:"D22",hex:"#333A95"},{id:"D23",hex:"#EBDAFC"},{id:"D24",hex:"#778600000"},{id:"D25",hex:"#494FC7"},{id:"D26",hex:"#DFC2F8"},
+      {id:"D1",hex:"#AEB4F2"},{id:"D2",hex:"#858EDD"},{id:"D3",hex:"#2F54AF"},{id:"D4",hex:"#182A84"},{id:"D5",hex:"#B843C5"},{id:"D6",hex:"#AC7BDE"},{id:"D7",hex:"#8854B3"},{id:"D8",hex:"#E2D3FF"},{id:"D9",hex:"#D5B9F8"},{id:"D10",hex:"#361851"},{id:"D11",hex:"#B9BAE1"},{id:"D12",hex:"#DE9AD4"},{id:"D13",hex:"#B90095"},{id:"D14",hex:"#8B279B"},{id:"D15",hex:"#2F1F90"},{id:"D16",hex:"#E3E1EE"},{id:"D17",hex:"#C4D4F6"},{id:"D18",hex:"#A45EC7"},{id:"D19",hex:"#D8C3D7"},{id:"D20",hex:"#9C32B2"},{id:"D21",hex:"#9A009B"},{id:"D22",hex:"#333A95"},{id:"D23",hex:"#EBDAFC"},{id:"D24",hex:"#7786E5"},{id:"D25",hex:"#494FC7"},{id:"D26",hex:"#DFC2F8"},
       {id:"E1",hex:"#FDD3CC"},{id:"E2",hex:"#FEC0DF"},{id:"E3",hex:"#FFB7E7"},{id:"E4",hex:"#E8649E"},{id:"E5",hex:"#F551A2"},{id:"E6",hex:"#F13D74"},{id:"E7",hex:"#C63478"},{id:"E8",hex:"#FFDBE9"},{id:"E9",hex:"#E970CC"},{id:"E10",hex:"#D33793"},{id:"E11",hex:"#FCDDD2"},{id:"E12",hex:"#F78FC3"},{id:"E13",hex:"#B5006D"},{id:"E14",hex:"#FFD1BA"},{id:"E15",hex:"#F8C7C9"},{id:"E16",hex:"#FFF3EB"},{id:"E17",hex:"#FFE2EA"},{id:"E18",hex:"#FFC7DB"},{id:"E19",hex:"#FEBAD5"},{id:"E20",hex:"#D8C7D1"},{id:"E21",hex:"#BD9DA1"},{id:"E22",hex:"#B785A1"},{id:"E23",hex:"#937A8D"},{id:"E24",hex:"#E1BCE8"},
       {id:"F1",hex:"#FD957B"},{id:"F2",hex:"#FC3D46"},{id:"F3",hex:"#F74941"},{id:"F4",hex:"#FC283C"},{id:"F5",hex:"#E7002F"},{id:"F6",hex:"#943630"},{id:"F7",hex:"#971937"},{id:"F8",hex:"#BC0028"},{id:"F9",hex:"#E2677A"},{id:"F10",hex:"#8A4526"},{id:"F11",hex:"#5A2121"},{id:"F12",hex:"#FD4E6A"},{id:"F13",hex:"#F35744"},{id:"F14",hex:"#FFA9AD"},{id:"F15",hex:"#D30022"},{id:"F16",hex:"#FEC2A6"},{id:"F17",hex:"#E69C79"},{id:"F18",hex:"#D37C46"},{id:"F19",hex:"#C1444A"},{id:"F20",hex:"#CD9391"},{id:"F21",hex:"#F7B4C6"},{id:"F22",hex:"#FDC0D0"},{id:"F23",hex:"#F67E66"},{id:"F24",hex:"#E698AA"},{id:"F25",hex:"#E54B4F"},
       {id:"G1",hex:"#FFE2CE"},{id:"G2",hex:"#FFC4AA"},{id:"G3",hex:"#F4C3A5"},{id:"G4",hex:"#E1B383"},{id:"G5",hex:"#EDB045"},{id:"G6",hex:"#E99C17"},{id:"G7",hex:"#9D5B3E"},{id:"G8",hex:"#753832"},{id:"G9",hex:"#E6B483"},{id:"G10",hex:"#D98C39"},{id:"G11",hex:"#E0C593"},{id:"G12",hex:"#FFC890"},{id:"G13",hex:"#B7714A"},{id:"G14",hex:"#8D614C"},{id:"G15",hex:"#FCF9E0"},{id:"G16",hex:"#F2D9BA"},{id:"G17",hex:"#78524B"},{id:"G18",hex:"#FFE4CC"},{id:"G19",hex:"#E07935"},{id:"G20",hex:"#A94023"},{id:"G21",hex:"#B88558"},
-      {id:"H1",hex:"#FDFBFF"},{id:"H2",hex:"#FEFFFF"},{id:"H3",hex:"#B6B1BA"},{id:"H4",hex:"#89858C"},{id:"H5",hex:"#48464E"},{id:"H6",hex:"#2F2B2F"},{id:"H7",hex:"#0"},{id:"H8",hex:"#E7D6DB"},{id:"H9",hex:"#EDEDED"},{id:"H10",hex:"#EEE9EA"},{id:"H11",hex:"#CECDD5"},{id:"H12",hex:"#FFF5ED"},{id:"H13",hex:"#F5ECD2"},{id:"H14",hex:"#CFD7D3"},{id:"H15",hex:"#98A6A8"},{id:"H16",hex:"#1D1414"},{id:"H17",hex:"#F1EDED"},{id:"H18",hex:"#FFFDF0"},{id:"H19",hex:"#F6EFE2"},{id:"H20",hex:"#949FA3"},{id:"H21",hex:"#FFFBE1"},{id:"H22",hex:"#CACAD4"},{id:"H23",hex:"#9A9D94"},
+      {id:"H1",hex:"#FDFBFF"},{id:"H2",hex:"#FEFFFF"},{id:"H3",hex:"#B6B1BA"},{id:"H4",hex:"#89858C"},{id:"H5",hex:"#48464E"},{id:"H6",hex:"#2F2B2F"},{id:"H7",hex:"#000000"},{id:"H8",hex:"#E7D6DB"},{id:"H9",hex:"#EDEDED"},{id:"H10",hex:"#EEE9EA"},{id:"H11",hex:"#CECDD5"},{id:"H12",hex:"#FFF5ED"},{id:"H13",hex:"#F5ECD2"},{id:"H14",hex:"#CFD7D3"},{id:"H15",hex:"#98A6A8"},{id:"H16",hex:"#1D1414"},{id:"H17",hex:"#F1EDED"},{id:"H18",hex:"#FFFDF0"},{id:"H19",hex:"#F6EFE2"},{id:"H20",hex:"#949FA3"},{id:"H21",hex:"#FFFBE1"},{id:"H22",hex:"#CACAD4"},{id:"H23",hex:"#9A9D94"},
       {id:"M1",hex:"#BCC6B8"},{id:"M2",hex:"#8AA386"},{id:"M3",hex:"#697D80"},{id:"M4",hex:"#E3D2BC"},{id:"M5",hex:"#D0CCAA"},{id:"M6",hex:"#B0A782"},{id:"M7",hex:"#B4A497"},{id:"M8",hex:"#B38281"},{id:"M9",hex:"#A58767"},{id:"M10",hex:"#C5B2BC"},{id:"M11",hex:"#9F7594"},{id:"M12",hex:"#644749"},{id:"M13",hex:"#D19066"},{id:"M14",hex:"#C77362"},{id:"M15",hex:"#757D78"},
       {id:"P1",hex:"#FCF7F8"},{id:"P2",hex:"#B0A9AC"},{id:"P3",hex:"#AFDCAB"},{id:"P4",hex:"#FEA49F"},{id:"P5",hex:"#EE8C3E"},{id:"P6",hex:"#5FD0A7"},{id:"P7",hex:"#EB9270"},{id:"P8",hex:"#F0D958"},{id:"P9",hex:"#D9D9D9"},{id:"P10",hex:"#D9C7EA"},{id:"P11",hex:"#F3ECC9"},{id:"P12",hex:"#E6EEF2"},{id:"P13",hex:"#AACBEF"},{id:"P14",hex:"#337680"},{id:"P15",hex:"#668575"},{id:"P16",hex:"#FEBF45"},{id:"P17",hex:"#FEA324"},{id:"P18",hex:"#FEB89F"},{id:"P19",hex:"#FFFEEC"},{id:"P20",hex:"#FEBECF"},{id:"P21",hex:"#ECBEBF"},{id:"P22",hex:"#E4A89F"},{id:"P23",hex:"#A56268"},
       {id:"Q1",hex:"#F2A5E8"},{id:"Q2",hex:"#E9EC91"},{id:"Q3",hex:"#FFFF00"},{id:"Q4",hex:"#FFEBFA"},{id:"Q5",hex:"#76CEDE"},
