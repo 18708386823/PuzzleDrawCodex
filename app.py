@@ -438,6 +438,9 @@ HTML_PAGE = r"""
             <img id="processedPreview" alt="处理后图片预览" />
             <span id="emptyPreview" class="hint">处理后的图片会显示在这里</span>
           </div>
+          <div class="download-row" style="margin-top:12px;">
+            <button id="downloadProcessedBtn" class="secondary" type="button" disabled>下载抠图结果</button>
+          </div>
         </div>
         <div>
           <h2 class="panel-title">拼豆图纸</h2>
@@ -490,6 +493,7 @@ HTML_PAGE = r"""
     const previewBtn = document.getElementById("previewBtn");
     const generateBtn = document.getElementById("generateBtn");
     const downloadBtn = document.getElementById("downloadBtn");
+    const downloadProcessedBtn = document.getElementById("downloadProcessedBtn");
     const presetSelect = document.getElementById("presetSelect");
     const presetDesc = document.getElementById("presetDesc");
     const customSize = document.getElementById("customSize");
@@ -604,13 +608,23 @@ HTML_PAGE = r"""
         processedPreview.src = processedBlobUrl;
         processedPreview.style.display = "block";
         emptyPreview.style.display = "none";
+        downloadProcessedBtn.disabled = false;
         setStatus("预览已生成");
       } catch (err) {
         if (err.message !== "no file") alert(err.message || "网络请求失败，请稍后重试");
+        downloadProcessedBtn.disabled = true;
         setStatus("");
       } finally {
         setWorking(false);
       }
+    }
+
+    function downloadProcessedImage() {
+      if (!processedBlobUrl) return;
+      const link = document.createElement("a");
+      link.download = "抠图结果.png";
+      link.href = processedBlobUrl;
+      link.click();
     }
 
     async function generatePattern() {
@@ -840,6 +854,7 @@ HTML_PAGE = r"""
       link.href = canvas.toDataURL("image/png");
       link.click();
     });
+    downloadProcessedBtn.addEventListener("click", downloadProcessedImage);
 
     init();
   </script>
