@@ -374,7 +374,7 @@ HTML_PAGE = r"""
       </div>
 
       <div class="field">
-        <label class="check"><input id="removeBg" type="checkbox" checked /> 去除背景（抠图）</label>
+        <label class="check"><input id="removeBg" type="checkbox"/> 去除背景（抠图）</label>
       </div>
 
       <div class="field">
@@ -427,11 +427,6 @@ HTML_PAGE = r"""
       {id:"G1",hex:"#FFE2CE"},{id:"G2",hex:"#FFC4AA"},{id:"G3",hex:"#F4C3A5"},{id:"G4",hex:"#E1B383"},{id:"G5",hex:"#EDB045"},{id:"G6",hex:"#E99C17"},{id:"G7",hex:"#9D5B3E"},{id:"G8",hex:"#753832"},{id:"G9",hex:"#E6B483"},{id:"G10",hex:"#D98C39"},{id:"G11",hex:"#E0C593"},{id:"G12",hex:"#FFC890"},{id:"G13",hex:"#B7714A"},{id:"G14",hex:"#8D614C"},{id:"G15",hex:"#FCF9E0"},{id:"G16",hex:"#F2D9BA"},{id:"G17",hex:"#78524B"},{id:"G18",hex:"#FFE4CC"},{id:"G19",hex:"#E07935"},{id:"G20",hex:"#A94023"},{id:"G21",hex:"#B88558"},
       {id:"H1",hex:"#FDFBFF"},{id:"H2",hex:"#FEFFFF"},{id:"H3",hex:"#B6B1BA"},{id:"H4",hex:"#89858C"},{id:"H5",hex:"#48464E"},{id:"H6",hex:"#2F2B2F"},{id:"H7",hex:"#000000"},{id:"H8",hex:"#E7D6DB"},{id:"H9",hex:"#EDEDED"},{id:"H10",hex:"#EEE9EA"},{id:"H11",hex:"#CECDD5"},{id:"H12",hex:"#FFF5ED"},{id:"H13",hex:"#F5ECD2"},{id:"H14",hex:"#CFD7D3"},{id:"H15",hex:"#98A6A8"},{id:"H16",hex:"#1D1414"},{id:"H17",hex:"#F1EDED"},{id:"H18",hex:"#FFFDF0"},{id:"H19",hex:"#F6EFE2"},{id:"H20",hex:"#949FA3"},{id:"H21",hex:"#FFFBE1"},{id:"H22",hex:"#CACAD4"},{id:"H23",hex:"#9A9D94"},
       {id:"M1",hex:"#BCC6B8"},{id:"M2",hex:"#8AA386"},{id:"M3",hex:"#697D80"},{id:"M4",hex:"#E3D2BC"},{id:"M5",hex:"#D0CCAA"},{id:"M6",hex:"#B0A782"},{id:"M7",hex:"#B4A497"},{id:"M8",hex:"#B38281"},{id:"M9",hex:"#A58767"},{id:"M10",hex:"#C5B2BC"},{id:"M11",hex:"#9F7594"},{id:"M12",hex:"#644749"},{id:"M13",hex:"#D19066"},{id:"M14",hex:"#C77362"},{id:"M15",hex:"#757D78"},
-      {id:"P1",hex:"#FCF7F8"},{id:"P2",hex:"#B0A9AC"},{id:"P3",hex:"#AFDCAB"},{id:"P4",hex:"#FEA49F"},{id:"P5",hex:"#EE8C3E"},{id:"P6",hex:"#5FD0A7"},{id:"P7",hex:"#EB9270"},{id:"P8",hex:"#F0D958"},{id:"P9",hex:"#D9D9D9"},{id:"P10",hex:"#D9C7EA"},{id:"P11",hex:"#F3ECC9"},{id:"P12",hex:"#E6EEF2"},{id:"P13",hex:"#AACBEF"},{id:"P14",hex:"#337680"},{id:"P15",hex:"#668575"},{id:"P16",hex:"#FEBF45"},{id:"P17",hex:"#FEA324"},{id:"P18",hex:"#FEB89F"},{id:"P19",hex:"#FFFEEC"},{id:"P20",hex:"#FEBECF"},{id:"P21",hex:"#ECBEBF"},{id:"P22",hex:"#E4A89F"},{id:"P23",hex:"#A56268"},
-      {id:"Q1",hex:"#F2A5E8"},{id:"Q2",hex:"#E9EC91"},{id:"Q3",hex:"#FFFF00"},{id:"Q4",hex:"#FFEBFA"},{id:"Q5",hex:"#76CEDE"},
-      {id:"R1",hex:"#D50D21"},{id:"R2",hex:"#F92F83"},{id:"R3",hex:"#FD8324"},{id:"R4",hex:"#F8EC31"},{id:"R5",hex:"#35C75B"},{id:"R6",hex:"#238891"},{id:"R7",hex:"#19779D"},{id:"R8",hex:"#1A60C3"},{id:"R9",hex:"#9A56B4"},{id:"R10",hex:"#FFDB4C"},{id:"R11",hex:"#FFEBFA"},{id:"R12",hex:"#D8D5CE"},{id:"R13",hex:"#55514C"},{id:"R14",hex:"#9FE4DF"},{id:"R15",hex:"#77CEE9"},{id:"R16",hex:"#3ECFCA"},{id:"R17",hex:"#4A867A"},{id:"R18",hex:"#7FCD9D"},{id:"R19",hex:"#CDE55D"},{id:"R20",hex:"#E8C7B4"},{id:"R21",hex:"#AD6F3C"},{id:"R22",hex:"#6C372F"},{id:"R23",hex:"#FEB872"},{id:"R24",hex:"#F3C1C0"},{id:"R25",hex:"#C9675E"},{id:"R26",hex:"#D293BE"},{id:"R27",hex:"#EA8CB1"},{id:"R28",hex:"#9C87D6"},
-      {id:"T1",hex:"#FFFFFF"},{id:"Y1",hex:"#FD6FB4"},{id:"Y2",hex:"#FEB481"},{id:"Y3",hex:"#D7FAA0"},{id:"Y4",hex:"#8BDBFA"},{id:"Y5",hex:"#E987EA"},
-      {id:"ZG1",hex:"#DAABB3"},{id:"ZG2",hex:"#D6AA87"},{id:"ZG3",hex:"#C1BD8D"},{id:"ZG4",hex:"#96869F"},{id:"ZG5",hex:"#8490A6"},{id:"ZG6",hex:"#94BFE2"},{id:"ZG7",hex:"#E2A9D2"},{id:"ZG8",hex:"#AB91C0"}
     ];
 
     const PRESETS = [
