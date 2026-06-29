@@ -1,5 +1,6 @@
 # Dependencies:
 # pip install fastapi uvicorn pillow cos-python-sdk-v5 requests python-multipart
+import base64
 import io
 import logging
 import os
@@ -7,6 +8,7 @@ import uuid
 from typing import Tuple
 
 import requests
+import xml.etree.ElementTree as ET
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from PIL import Image, UnidentifiedImageError
@@ -114,14 +116,46 @@ def remove_background_with_cos(png_bytes: bytes) -> bytes:
         raise ImageProcessError("抠图服务暂时不可用，请稍后重试") from exc
 
     try:
-        processed = Image.open(io.BytesIO(result.content))
+        content_type = result.headers.get("content-type", "")
+        if content_type.startswith("application/xml"):
+            root = ET.fromstring(result.content)
+            for elem in root.iter():
+                if elem.tag.endswith("Error") or elem.tag == "Error":
+                    code = ""
+                    message = ""
+                    for child in elem:
+                        if child.tag.endswith("Code") or child.tag == "Code":
+                            code = child.text or ""
+                        if child.tag.endswith("Message") or child.tag == "Message":
+                            message = child.text or ""
+                    logger.error("CI error response: code=%s message=%s", code, message)
+                    raise ImageProcessError(f"抠图服务返回错误：{code} - {message}" if code or message else "抠图服务返回错误，请检查配置")
+
+            image_data = None
+            for elem in root.iter():
+                if elem.tag.endswith("ResultImage") or elem.tag == "ResultImage":
+                    image_data = elem.text
+                    break
+            if image_data is None:
+                raise ImageProcessError("抠图结果中未找到图片数据")
+            image_bytes = base64.b64decode(image_data)
+        else:
+            image_bytes = result.content
+
+        processed = Image.open(io.BytesIO(image_bytes))
         processed.load()
         processed = processed.convert("RGBA")
         output = io.BytesIO()
         processed.save(output, format="PNG")
         return output.getvalue()
+    except ET.ParseError as exc:
+        logger.error("CI XML parse failed: body_prefix=%r", result.content[:300])
+        raise ImageProcessError("抠图结果XML解析失败，请稍后重试") from exc
+    except ValueError as exc:
+        logger.error("CI base64 decode failed")
+        raise ImageProcessError("抠图结果图片数据解码失败，请稍后重试") from exc
     except Exception as exc:
-        logger.exception("CI image response parse failed: status=%s content_type=%s body_prefix=%r", result.status_code, result.headers.get("content-type"), result.content[:300])
+        logger.exception("CI image response parse failed: status=%s content_type=%s body_prefix=%r", result.status_code, content_type, result.content[:300])
         raise ImageProcessError("抠图结果解析失败，请稍后重试") from exc
 
 
