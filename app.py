@@ -433,18 +433,19 @@ HTML_PAGE = r"""
     <section>
       <div class="preview-grid">
         <div>
-          <h2 class="panel-title">预览抠图效果</h2>
+          <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>预览抠图效果</span>
+            <button id="downloadProcessedBtn" class="secondary" type="button" disabled style="font-size:13px;min-height:32px;padding:0 10px;">下载抠图后图片</button>
+          </div>
           <div class="image-box">
             <img id="processedPreview" alt="处理后图片预览" />
             <span id="emptyPreview" class="hint">处理后的图片会显示在这里</span>
-          </div>
-          <div class="download-row" style="margin-top:12px;">
-            <button id="downloadProcessedBtn" class="secondary" type="button" disabled>下载抠图结果</button>
           </div>
         </div>
         <div>
           <h2 class="panel-title">拼豆图纸</h2>
           <div class="canvas-wrap"><canvas id="patternCanvas" width="900" height="520"></canvas></div>
+          <div id="patternStatus" class="status" style="text-align:right;margin-top:8px;color:var(--muted);min-height:18px;"></div>
           <div class="download-row">
             <button id="downloadBtn" class="secondary" type="button" disabled>下载 PNG</button>
           </div>
@@ -504,6 +505,7 @@ HTML_PAGE = r"""
     const statusEl = document.getElementById("status");
     const processedPreview = document.getElementById("processedPreview");
     const emptyPreview = document.getElementById("emptyPreview");
+    const patternStatus = document.getElementById("patternStatus");
     const canvas = document.getElementById("patternCanvas");
     const ctx = canvas.getContext("2d");
 
@@ -610,6 +612,7 @@ HTML_PAGE = r"""
         emptyPreview.style.display = "none";
         downloadProcessedBtn.disabled = false;
         setStatus("预览已生成");
+        alert("抠图已完成，可在预览区域查看效果并下载。");
       } catch (err) {
         if (err.message !== "no file") alert(err.message || "网络请求失败，请稍后重试");
         downloadProcessedBtn.disabled = true;
@@ -622,7 +625,7 @@ HTML_PAGE = r"""
     function downloadProcessedImage() {
       if (!processedBlobUrl) return;
       const link = document.createElement("a");
-      link.download = "抠图结果.png";
+      link.download = "抠图后图片.png";
       link.href = processedBlobUrl;
       link.click();
     }
@@ -630,13 +633,16 @@ HTML_PAGE = r"""
     async function generatePattern() {
       try {
         setWorking(true, "正在生成图纸...");
+        if (patternStatus) patternStatus.textContent = "图纸生成中...，请稍等";
         const blob = await callImageApi("/api/process");
         const bitmap = await createImageBitmap(blob);
         drawPattern(bitmap, getSize());
         downloadBtn.disabled = false;
+        if (patternStatus) patternStatus.textContent = "";
         setStatus("图纸已生成，可下载 PNG");
       } catch (err) {
         if (err.message !== "no file") alert(err.message || "生成图纸失败，请稍后重试");
+        if (patternStatus) patternStatus.textContent = "";
         setStatus("");
       } finally {
         setWorking(false);
