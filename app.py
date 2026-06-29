@@ -417,8 +417,8 @@ HTML_PAGE = r"""
         <div id="presetDesc" class="hint"></div>
         <label class="check" style="margin-top:10px;"><input id="customSize" type="checkbox" /> 自定义尺寸</label>
         <div id="customBox" class="dims" style="display:none;">
-          <label>宽（格）<input id="customWidth" type="number" min="5" max="200" value="" /></label>
-          <label>高（格）<input id="customHeight" type="number" min="5" max="200" value="" /></label>
+          <label>宽（格）<input id="customWidth" type="number" value="" /></label>
+          <label>高（格）<input id="customHeight" type="number" value="" /></label>
         </div>
         <div id="cmInfo" class="hint"></div>
       </div>
@@ -522,28 +522,44 @@ HTML_PAGE = r"""
     function getSize() {
       if (customSize.checked) {
         return {
-          width: clampInt(customWidth.value, 5, 200),
-          height: clampInt(customHeight.value, 5, 200)
+          width: parseCustomValue(customWidth.value, 5, 200),
+          height: parseCustomValue(customHeight.value, 5, 200)
         };
       }
       const preset = PRESETS[Number(presetSelect.value) || 0];
       return {width: preset.width, height: preset.height};
     }
 
-    function clampInt(value, min, max) {
+    function parseCustomValue(value, min, max) {
+      if (!value || value.trim() === "") return min;
       const num = Number.parseInt(value, 10);
       if (Number.isNaN(num)) return min;
       return Math.max(min, Math.min(max, num));
+    }
+
+    function validateCustomSize() {
+      const width = parseCustomValue(customWidth.value, 5, 200);
+      const height = parseCustomValue(customHeight.value, 5, 200);
+      customWidth.value = customWidth.value.trim() === "" ? "" : width;
+      customHeight.value = customHeight.value.trim() === "" ? "" : height;
+      updateCmInfo();
+    }
+
+    function updateCmInfo() {
+      const size = getSize();
+      cmInfo.textContent = `一格0.26cm，当前约${(size.width * 0.26).toFixed(1)}cm×${(size.height * 0.26).toFixed(1)}cm`;
     }
 
     function updateSizeUI() {
       const preset = PRESETS[Number(presetSelect.value) || 0];
       presetDesc.textContent = preset.desc;
       customBox.style.display = customSize.checked ? "grid" : "none";
-      const size = getSize();
-      customWidth.value = size.width;
-      customHeight.value = size.height;
-      cmInfo.textContent = `一格0.26cm，当前约${(size.width * 0.26).toFixed(1)}cm×${(size.height * 0.26).toFixed(1)}cm`;
+      if (!customSize.checked) {
+        const size = getSize();
+        customWidth.value = "";
+        customHeight.value = "";
+      }
+      updateCmInfo();
     }
 
     function setFile(file) {
@@ -812,8 +828,10 @@ HTML_PAGE = r"""
     fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
     presetSelect.addEventListener("change", updateSizeUI);
     customSize.addEventListener("change", updateSizeUI);
-    customWidth.addEventListener("input", updateSizeUI);
-    customHeight.addEventListener("input", updateSizeUI);
+    customWidth.addEventListener("input", updateCmInfo);
+    customWidth.addEventListener("blur", validateCustomSize);
+    customHeight.addEventListener("input", updateCmInfo);
+    customHeight.addEventListener("blur", validateCustomSize);
     previewBtn.addEventListener("click", previewImage);
     generateBtn.addEventListener("click", generatePattern);
     downloadBtn.addEventListener("click", () => {
