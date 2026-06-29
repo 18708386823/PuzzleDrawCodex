@@ -383,14 +383,14 @@ HTML_PAGE = r"""
         <div id="presetDesc" class="hint"></div>
         <label class="check" style="margin-top:10px;"><input id="customSize" type="checkbox" /> 自定义尺寸</label>
         <div id="customBox" class="dims" style="display:none;">
-          <label>宽（格）<input id="customWidth" type="number" min="5" max="200" value="52" /></label>
-          <label>高（格）<input id="customHeight" type="number" min="5" max="200" value="52" /></label>
+          <label>宽（格）<input id="customWidth" type="number" min="5" max="200" value="" /></label>
+          <label>高（格）<input id="customHeight" type="number" min="5" max="200" value="" /></label>
         </div>
         <div id="cmInfo" class="hint"></div>
       </div>
 
       <div class="actions">
-        <button id="previewBtn" type="button">预览效果</button>
+        <button id="previewBtn" type="button">预览抠图效果</button>
         <button id="generateBtn" class="success" type="button">生成图纸</button>
       </div>
       <div id="status" class="status"></div>
@@ -399,7 +399,7 @@ HTML_PAGE = r"""
     <section>
       <div class="preview-grid">
         <div>
-          <h2 class="panel-title">预览效果</h2>
+          <h2 class="panel-title">预览抠图效果</h2>
           <div class="image-box">
             <img id="processedPreview" alt="处理后图片预览" />
             <span id="emptyPreview" class="hint">处理后的图片会显示在这里</span>
